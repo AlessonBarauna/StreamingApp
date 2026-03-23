@@ -56,8 +56,7 @@ public class TranscodingJob
 
             _logger.LogInformation("Downloading original file for content {ContentId}", contentId);
             await _notifier.NotifyProgressAsync(contentId, "downloading", 10, ct);
-            // TODO: implementar download do arquivo original do MinIO para inputFile
-            // await _storage.DownloadFileAsync(originalFileKey, inputFile, ct);
+            await _storage.DownloadFileAsync(originalFileKey, inputFile, ct);
 
             _logger.LogInformation("Transcoding content {ContentId}", contentId);
             await _notifier.NotifyProgressAsync(contentId, "transcoding", 30, ct);

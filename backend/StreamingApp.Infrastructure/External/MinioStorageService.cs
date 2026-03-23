@@ -51,6 +51,19 @@ public class MinioStorageService : IStorageService
         await UploadFileAsync(objectKey, stream, contentType, ct);
     }
 
+    public async Task DownloadFileAsync(string objectKey, string destinationPath, CancellationToken ct = default)
+    {
+        var args = new GetObjectArgs()
+            .WithBucket(_bucketName)
+            .WithObject(objectKey)
+            .WithCallbackStream(async (stream, token) =>
+            {
+                await using var fs = File.Create(destinationPath);
+                await stream.CopyToAsync(fs, token);
+            });
+        await _minio.GetObjectAsync(args, ct);
+    }
+
     public async Task<bool> FileExistsAsync(string objectKey, CancellationToken ct = default)
     {
         try
