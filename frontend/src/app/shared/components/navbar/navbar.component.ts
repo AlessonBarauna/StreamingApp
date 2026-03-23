@@ -18,6 +18,7 @@ import { AuthService } from '../../../core/auth/auth.service';
         <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Início</a>
         <a routerLink="/browse" routerLinkActive="active">Explorar</a>
         <a *ngIf="auth.isAdmin()" routerLink="/admin/upload" routerLinkActive="active">Upload</a>
+        <a *ngIf="auth.isAdmin()" routerLink="/admin/content" routerLinkActive="active">Conteúdos</a>
       </nav>
       <span class="spacer"></span>
       <button mat-icon-button routerLink="/browse">
