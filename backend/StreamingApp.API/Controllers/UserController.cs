@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using StreamingApp.Application.DTOs.Auth;
 using StreamingApp.Application.Services;
 using System.Security.Claims;
 
@@ -11,10 +12,21 @@ namespace StreamingApp.API.Controllers;
 public class UserController : ControllerBase
 {
     private readonly WatchHistoryService _watchHistoryService;
+    private readonly AuthService _authService;
 
-    public UserController(WatchHistoryService watchHistoryService)
+    public UserController(WatchHistoryService watchHistoryService, AuthService authService)
     {
         _watchHistoryService = watchHistoryService;
+        _authService = authService;
+    }
+
+    [HttpPatch("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto dto, CancellationToken ct)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await _authService.UpdateProfileAsync(userId, dto, ct);
+        if (!result.IsSuccess) return NotFound();
+        return Ok(new { result.Value!.AccessToken, result.Value.DisplayName, result.Value.AvatarUrl });
     }
 
     [HttpGet("watchlist")]

@@ -101,6 +101,20 @@ public class AuthService
             accessToken, newRefreshToken, user.Id, user.Email!, user.DisplayName, user.IsAdmin, user.AvatarUrl));
     }
 
+    public async Task<Result<AuthResponseDto>> UpdateProfileAsync(string userId, UpdateProfileDto dto, CancellationToken ct = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null) return Result<AuthResponseDto>.NotFound();
+
+        user.DisplayName = dto.DisplayName;
+        user.AvatarUrl = dto.AvatarUrl;
+        await _userManager.UpdateAsync(user);
+
+        var accessToken = await GenerateAccessTokenAsync(user);
+        return Result<AuthResponseDto>.Success(new AuthResponseDto(
+            accessToken, null, user.Id, user.Email!, user.DisplayName, user.IsAdmin, user.AvatarUrl));
+    }
+
     public async Task<Result> LogoutAsync(string userId, CancellationToken ct = default)
     {
         var user = await _userManager.FindByIdAsync(userId);
