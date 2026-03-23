@@ -11,6 +11,9 @@ public class User : IdentityUser
     public SubscriptionPlan SubscriptionPlan { get; set; } = SubscriptionPlan.Free;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public string? RefreshTokenHash { get; set; }
+    public DateTime? RefreshTokenExpiry { get; set; }
+
     public ICollection<WatchHistory> WatchHistories { get; set; } = new List<WatchHistory>();
     public ICollection<UserList> UserLists { get; set; } = new List<UserList>();
     public ICollection<Rating> Ratings { get; set; } = new List<Rating>();

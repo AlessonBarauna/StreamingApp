@@ -41,8 +41,11 @@ public class AuthService
 
         await _userManager.AddToRoleAsync(user, "User");
 
-        var token = await GenerateAccessTokenAsync(user);
-        return Result<AuthResponseDto>.Success(new AuthResponseDto(token, user.Id, user.Email!, user.DisplayName, user.IsAdmin, user.AvatarUrl));
+        var accessToken = await GenerateAccessTokenAsync(user);
+        var refreshToken = await SetRefreshTokenAsync(user);
+
+        return Result<AuthResponseDto>.Success(new AuthResponseDto(
+            accessToken, refreshToken, user.Id, user.Email!, user.DisplayName, user.IsAdmin, user.AvatarUrl));
     }
 
     public async Task<Result<AuthResponseDto>> LoginAsync(LoginDto dto, CancellationToken ct = default)
@@ -51,18 +54,65 @@ public class AuthService
         if (user == null || !await _userManager.CheckPasswordAsync(user, dto.Password))
             return Result<AuthResponseDto>.Unauthorized("Email ou senha inválidos.");
 
-        var token = await GenerateAccessTokenAsync(user);
-        return Result<AuthResponseDto>.Success(new AuthResponseDto(token, user.Id, user.Email!, user.DisplayName, user.IsAdmin, user.AvatarUrl));
+        var accessToken = await GenerateAccessTokenAsync(user);
+        var refreshToken = await SetRefreshTokenAsync(user);
+
+        return Result<AuthResponseDto>.Success(new AuthResponseDto(
+            accessToken, refreshToken, user.Id, user.Email!, user.DisplayName, user.IsAdmin, user.AvatarUrl));
     }
 
     public async Task<Result<AuthResponseDto>> GetMeAsync(string userId, CancellationToken ct = default)
     {
         var user = await _userManager.FindByIdAsync(userId);
-        if (user == null) return Result<AuthResponseDto>.NotFound();
+        if (user is null) return Result<AuthResponseDto>.NotFound();
 
-        var token = await GenerateAccessTokenAsync(user);
-        return Result<AuthResponseDto>.Success(new AuthResponseDto(token, user.Id, user.Email!, user.DisplayName, user.IsAdmin, user.AvatarUrl));
+        var accessToken = await GenerateAccessTokenAsync(user);
+        return Result<AuthResponseDto>.Success(new AuthResponseDto(
+            accessToken, null, user.Id, user.Email!, user.DisplayName, user.IsAdmin, user.AvatarUrl));
     }
+
+    /// <summary>
+    /// Valida o refresh token do cookie, rotaciona e retorna um novo par de tokens.
+    /// Cookie value format: "{userId}:{rawRefreshToken}"
+    /// </summary>
+    public async Task<Result<AuthResponseDto>> RefreshAsync(string cookieValue, CancellationToken ct = default)
+    {
+        var parts = cookieValue.Split(':', 2);
+        if (parts.Length != 2)
+            return Result<AuthResponseDto>.Unauthorized("Refresh token inválido.");
+
+        var userId = parts[0];
+        var rawToken = parts[1];
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null || user.RefreshTokenHash is null || user.RefreshTokenExpiry is null)
+            return Result<AuthResponseDto>.Unauthorized("Refresh token inválido.");
+
+        if (user.RefreshTokenExpiry < DateTime.UtcNow)
+            return Result<AuthResponseDto>.Unauthorized("Refresh token expirado.");
+
+        if (!VerifyTokenHash(rawToken, user.RefreshTokenHash))
+            return Result<AuthResponseDto>.Unauthorized("Refresh token inválido.");
+
+        var accessToken = await GenerateAccessTokenAsync(user);
+        var newRefreshToken = await SetRefreshTokenAsync(user);
+
+        return Result<AuthResponseDto>.Success(new AuthResponseDto(
+            accessToken, newRefreshToken, user.Id, user.Email!, user.DisplayName, user.IsAdmin, user.AvatarUrl));
+    }
+
+    public async Task<Result> LogoutAsync(string userId, CancellationToken ct = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null) return Result.NotFound();
+
+        user.RefreshTokenHash = null;
+        user.RefreshTokenExpiry = null;
+        await _userManager.UpdateAsync(user);
+        return Result.Success();
+    }
+
+    // --- Private helpers ---
 
     private async Task<string> GenerateAccessTokenAsync(User user)
     {
@@ -87,4 +137,22 @@ public class AuthService
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
+    /// <summary>
+    /// Gera, armazena (hashed) e retorna o refresh token raw no formato "{userId}:{rawToken}".
+    /// </summary>
+    private async Task<string> SetRefreshTokenAsync(User user)
+    {
+        var rawToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        user.RefreshTokenHash = HashToken(rawToken);
+        user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+        await _userManager.UpdateAsync(user);
+        return $"{user.Id}:{rawToken}";
+    }
+
+    private static string HashToken(string rawToken) =>
+        Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(rawToken)));
+
+    private static bool VerifyTokenHash(string rawToken, string storedHash) =>
+        HashToken(rawToken) == storedHash;
 }

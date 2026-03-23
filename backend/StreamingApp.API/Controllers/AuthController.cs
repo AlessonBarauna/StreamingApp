@@ -10,6 +10,7 @@ namespace StreamingApp.API.Controllers;
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
+    private const string RefreshTokenCookie = "refresh_token";
     private readonly AuthService _authService;
 
     public AuthController(AuthService authService) => _authService = authService;
@@ -19,7 +20,9 @@ public class AuthController : ControllerBase
     {
         var result = await _authService.RegisterAsync(dto, ct);
         if (!result.IsSuccess) return StatusCode(result.StatusCode, new { error = result.Error });
-        return Ok(result.Value);
+
+        SetRefreshCookie(result.Value!.RefreshToken!);
+        return Ok(ToClientResponse(result.Value));
     }
 
     [HttpPost("login")]
@@ -27,7 +30,9 @@ public class AuthController : ControllerBase
     {
         var result = await _authService.LoginAsync(dto, ct);
         if (!result.IsSuccess) return StatusCode(result.StatusCode, new { error = result.Error });
-        return Ok(result.Value);
+
+        SetRefreshCookie(result.Value!.RefreshToken!);
+        return Ok(ToClientResponse(result.Value));
     }
 
     [Authorize]
@@ -37,10 +42,58 @@ public class AuthController : ControllerBase
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var result = await _authService.GetMeAsync(userId, ct);
         if (!result.IsSuccess) return StatusCode(result.StatusCode, new { error = result.Error });
-        return Ok(result.Value);
+        return Ok(ToClientResponse(result.Value!));
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh(CancellationToken ct)
+    {
+        var cookieValue = Request.Cookies[RefreshTokenCookie];
+        if (string.IsNullOrEmpty(cookieValue))
+            return Unauthorized(new { error = "Refresh token ausente." });
+
+        var result = await _authService.RefreshAsync(cookieValue, ct);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, new { error = result.Error });
+
+        SetRefreshCookie(result.Value!.RefreshToken!);
+        return Ok(ToClientResponse(result.Value));
     }
 
     [Authorize]
     [HttpPost("logout")]
-    public IActionResult Logout() => Ok(new { message = "Logged out" });
+    public async Task<IActionResult> Logout(CancellationToken ct)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        await _authService.LogoutAsync(userId, ct);
+
+        Response.Cookies.Delete(RefreshTokenCookie);
+        return Ok(new { message = "Logged out" });
+    }
+
+    // --- Helpers ---
+
+    private void SetRefreshCookie(string rawRefreshToken)
+    {
+        Response.Cookies.Append(RefreshTokenCookie, rawRefreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = Request.IsHttps,
+            SameSite = SameSiteMode.Strict,
+            MaxAge = TimeSpan.FromDays(7)
+        });
+    }
+
+    /// <summary>
+    /// Remove o RefreshToken do response antes de enviar ao cliente.
+    /// O refresh token vai apenas no cookie HttpOnly, nunca no corpo da resposta.
+    /// </summary>
+    private static object ToClientResponse(AuthResponseDto dto) => new
+    {
+        dto.AccessToken,
+        dto.UserId,
+        dto.Email,
+        dto.DisplayName,
+        dto.IsAdmin,
+        dto.AvatarUrl
+    };
 }

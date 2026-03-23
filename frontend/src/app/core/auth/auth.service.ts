@@ -1,7 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { tap } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 
 export interface AuthUser {
   accessToken: string;
@@ -23,25 +23,48 @@ export class AuthService {
 
   constructor(private http: HttpClient, private router: Router) {}
 
-  login(email: string, password: string) {
-    return this.http.post<AuthUser>('/api/auth/login', { email, password }).pipe(
+  login(email: string, password: string): Observable<AuthUser> {
+    return this.http.post<AuthUser>('/api/auth/login', { email, password }, { withCredentials: true }).pipe(
       tap(user => this.setUser(user))
     );
   }
 
-  register(email: string, password: string, displayName: string) {
-    return this.http.post<AuthUser>('/api/auth/register', { email, password, displayName }).pipe(
+  register(email: string, password: string, displayName: string): Observable<AuthUser> {
+    return this.http.post<AuthUser>('/api/auth/register', { email, password, displayName }, { withCredentials: true }).pipe(
       tap(user => this.setUser(user))
     );
   }
 
-  logout() {
+  /** Usa o cookie HttpOnly de refresh token para obter um novo access token. */
+  refresh(): Observable<AuthUser> {
+    return this.http.post<AuthUser>('/api/auth/refresh', {}, { withCredentials: true }).pipe(
+      tap(user => this.setUser(user))
+    );
+  }
+
+  logout(): void {
+    this.http.post('/api/auth/logout', {}, { withCredentials: true }).subscribe({
+      complete: () => this.clearSession()
+    });
+  }
+
+  /** Chamado pelo interceptor de erro quando o refresh falha — limpa sessão sem chamar API. */
+  clearSession(): void {
     this._user.set(null);
     localStorage.removeItem('auth_user');
     this.router.navigate(['/auth/login']);
   }
 
-  private setUser(user: AuthUser) {
+  updateToken(accessToken: string): void {
+    const current = this._user();
+    if (current) {
+      const updated = { ...current, accessToken };
+      this._user.set(updated);
+      localStorage.setItem('auth_user', JSON.stringify(updated));
+    }
+  }
+
+  private setUser(user: AuthUser): void {
     this._user.set(user);
     localStorage.setItem('auth_user', JSON.stringify(user));
   }
