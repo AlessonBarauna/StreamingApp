@@ -5,13 +5,15 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { refreshTokenInterceptor } from './core/interceptors/refresh-token.interceptor';
+import { errorInterceptor } from './core/interceptors/error.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
     provideHttpClient(withInterceptors([
-      authInterceptor,         // 1. injeta o Bearer token nas requests
-      refreshTokenInterceptor, // 2. captura 401, renova token e retenta
+      authInterceptor,         // 1. injeta Bearer token
+      refreshTokenInterceptor, // 2. renova token em 401 e retenta
+      errorInterceptor,        // 3. exibe toast para erros restantes
     ])),
     provideAnimations(),
   ]
