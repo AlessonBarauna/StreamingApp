@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- FrameworkReference fornece UserManager<T>, IConfiguration, SignalR, etc. sem duplicar binários -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <!-- JWT: JwtSecurityToken, SymmetricSecurityKey, SigningCredentials -->
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.5.2" />
+    <PackageReference Include="Hangfire.Core" Version="1.8.14" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\StreamingApp.Domain\StreamingApp.Domain.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,33 @@
+@import '@angular/material/prebuilt-themes/purple-green.css';
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Roboto', sans-serif;
+  background-color: #141414;
+  color: #fff;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #141414;
+}
+::-webkit-scrollbar-thumb {
+  background: #e50914;
+  border-radius: 3px;
+}
+
+.mat-mdc-raised-button.netflix-btn {
+  background-color: #e50914;
+  color: #fff;
+  border-radius: 4px;
+  padding: 8px 24px;
+}
