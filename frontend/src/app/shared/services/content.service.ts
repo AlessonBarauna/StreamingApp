@@ -21,6 +21,19 @@ export interface Content {
   createdAt: string;
 }
 
+export interface Episode {
+  id: string;
+  contentId: string;
+  title: string;
+  description: string;
+  seasonNumber: number;
+  episodeNumber: number;
+  durationMinutes: number;
+  thumbnailUrl?: string;
+  hlsManifestUrl?: string;
+  status: string;
+}
+
 export interface PagedResult<T> {
   items: T[];
   total: number;
@@ -40,6 +53,20 @@ export interface Progress {
   totalSeconds: number;
   percentComplete: number;
   isCompleted: boolean;
+}
+
+export interface CreateEpisodePayload {
+  title: string;
+  description: string;
+  seasonNumber: number;
+  episodeNumber: number;
+  durationMinutes: number;
+}
+
+export interface UpdateEpisodePayload {
+  title: string;
+  description: string;
+  durationMinutes: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -74,27 +101,43 @@ export class ContentService {
     return this.http.get<PagedResult<Content>>(`/api/content/search?q=${q}`);
   }
 
+  getEpisodes(contentId: string): Observable<Episode[]> {
+    return this.http.get<Episode[]>(`/api/content/${contentId}/episodes`);
+  }
+
+  createEpisode(contentId: string, payload: CreateEpisodePayload): Observable<Episode> {
+    return this.http.post<Episode>(`/api/content/${contentId}/episodes`, payload);
+  }
+
+  updateEpisode(contentId: string, episodeId: string, payload: UpdateEpisodePayload): Observable<Episode> {
+    return this.http.put<Episode>(`/api/content/${contentId}/episodes/${episodeId}`, payload);
+  }
+
+  deleteEpisode(contentId: string, episodeId: string): Observable<void> {
+    return this.http.delete<void>(`/api/content/${contentId}/episodes/${episodeId}`);
+  }
+
   getProgress(contentId: string): Observable<Progress> {
     return this.http.get<Progress>(`/api/stream/${contentId}/progress`);
   }
 
-  saveProgress(contentId: string, seconds: number, total: number): Observable<any> {
-    return this.http.post(`/api/stream/${contentId}/progress`, { seconds, total });
+  saveProgress(contentId: string, seconds: number, total: number): Observable<void> {
+    return this.http.post<void>(`/api/stream/${contentId}/progress`, { seconds, total });
   }
 
   getCategories(): Observable<Category[]> {
     return this.http.get<Category[]>('/api/categories');
   }
 
-  addToWatchlist(contentId: string): Observable<any> {
-    return this.http.post(`/api/user/watchlist/${contentId}`, {});
+  addToWatchlist(contentId: string): Observable<void> {
+    return this.http.post<void>(`/api/user/watchlist/${contentId}`, {});
   }
 
-  removeFromWatchlist(contentId: string): Observable<any> {
-    return this.http.delete(`/api/user/watchlist/${contentId}`);
+  removeFromWatchlist(contentId: string): Observable<void> {
+    return this.http.delete<void>(`/api/user/watchlist/${contentId}`);
   }
 
-  rate(contentId: string, isLiked: boolean): Observable<any> {
-    return this.http.post(`/api/user/rating/${contentId}`, { isLiked });
+  rate(contentId: string, isLiked: boolean): Observable<void> {
+    return this.http.post<void>(`/api/user/rating/${contentId}`, { isLiked });
   }
 }
